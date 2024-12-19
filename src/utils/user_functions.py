@@ -1,22 +1,21 @@
-from datetime import datetime, date
-import json
-import requests
-import time
-import matplotlib.pyplot as plt
-import seaborn as sns
+# Importación de bibliotecas estándar
+
 from collections import Counter
+from datetime import datetime, date
+from itertools import combinations
+import json
+import matplotlib.pyplot as plt
+import numpy as np
+from scipy.stats import mannwhitneyu, pearsonr
+import os
 import pandas as pd
 import random
-from scipy.stats import mannwhitneyu
-
-import matplotlib.pyplot as plt
+import requests
 import seaborn as sns
-import pandas as pd
-from itertools import combinations
-from scipy.stats import pearsonr
-import numpy as np
+import time
 
 
+# 1. FUNCIONES PARA ACCEDER A LA API REST DE GITHUB Y OBTENER LOS DATOS EN getting_GH_datasets.ipynb
 
 def generate_github_URL(base_url, endpoint, filter_params=None):
 
@@ -93,6 +92,12 @@ def get_repositories_by_year(headers, date_range, columns):
             print(f"No se encontraron repositorios para el año {year}. No se guardó ningún archivo.")
 
 
+# -------------------------------------------------------------------------------------------------------------------------------------
+
+
+# 2. FUNCIONES PARA AUTOMATIZAR CÁLCULOS Y PLOTS DE GRÁFICOS DEL NOTEBOOK main.ipynb
+
+
 def filter_repository_data(items, columns):
     filtered_items = []
     for item in items:
@@ -100,18 +105,18 @@ def filter_repository_data(items, columns):
         filtered_items.append(filtered_item)
     return filtered_items
 
-def contar_datos_por_agno(df, column_datetime):
+def count_data_by_year(df, column_datetime):
     year_counts = df['year'].value_counts().sort_index()
     return year_counts.to_dict()
 
-def plotar_datos_por_agno(df, column_datetime, color='cornflowerblue'):
+def plot_data_by_year(df, column_datetime, color='cornflowerblue'):
     
     year_counts = df['year'].value_counts().sort_index()
 
     plt.figure(figsize=(12, 7))
     bars = plt.bar(year_counts.index, year_counts.values, color=color)
 
-    plt.title('Número de Datos por Año (2010-2024)', fontsize=16, pad=20)
+    plt.title('Número de Repositórios por Año (2010-2024)', fontsize=16, pad=20)
     plt.xlabel('Año', fontsize=14, labelpad=15)
     plt.ylabel('Conteo', fontsize=14, labelpad=15)
 
@@ -143,7 +148,7 @@ def generate_random_color_list(num_colors):
     
     return colors
 
-def pinta_distribucion_categoricas(df, columnas_categoricas, relativa=False, mostrar_valores=False):
+def categorical_distribution_aspect(df, columnas_categoricas, relativa=False, mostrar_valores=False):
     num_columnas = len(columnas_categoricas)
     num_filas = (num_columnas // 2) + (num_columnas % 2)
 
@@ -305,7 +310,7 @@ def plot_occurrences_by_year(df, column_name, search_string, year_range=None):
     year_counts_language = df_filtered.groupby('year').size()
 
     # Contar los datos totales por año en el DataFrame
-    total_counts_by_year = contar_datos_por_agno(df, 'year')
+    total_counts_by_year = count_data_by_year(df, 'year')
     
     # Calcular los porcentajes para cada año
     percentage_counts = {year: (count / total_counts_by_year.get(year, 1)) * 100
@@ -372,7 +377,7 @@ def plot_string_with_normalization(df, column_name, search_strings, new_name, ye
     year_counts = df.groupby('year')[new_column_name].sum()
 
     # Contar el total por año para la normalización
-    total_counts_by_year = contar_datos_por_agno(df, 'year')
+    total_counts_by_year = count_data_by_year(df, 'year')
 
     # Valores normalizados porcentualmente
     normalized_counts = {year: (year_counts.get(year, 0) / total_counts_by_year[year]) * 100 for year in total_counts_by_year}
@@ -438,7 +443,7 @@ def plot_string_with_normalization_including_all(df, column_name, search_strings
     year_counts = df.groupby('year')[new_column_name].sum()
 
     # Contar el total por año para la normalización
-    total_counts_by_year = contar_datos_por_agno(df, 'year')
+    total_counts_by_year = count_data_by_year(df, 'year')
 
     # Valores normalizados porcentualmente
     normalized_counts = {year: (year_counts.get(year, 0) / total_counts_by_year[year]) * 100 for year in total_counts_by_year}
@@ -695,37 +700,66 @@ def plot_scatter_with_regression(df, columns):
 
     plt.show()
 
-def top_20_strings_by_success(df):
+def top_20_strings_by_columns(df, col1, col2, column_topic):
     """
-    Encuentra las 20 cadenas más comunes en la columna 'topics' para los 100 repositorios con mayor 'stargazers_count' 
-    y traza un gráfico de barras con estas cadenas.
+    Genera gráficos de barras para los 20 temas más comunes en una columna categórica, 
+    considerando la suma de valores de dos columnas numéricas de forma independiente.
 
     Parámetros:
-    - df: DataFrame con los datos, donde 'topics' es una columna con listas de cadenas y 'stargazers_count' es una columna numérica.
+    - df: DataFrame con los datos.
+    - col1, col2: Nombres de las columnas numéricas para calcular la suma.
+    - column_topic: Nombre de la columna categórica que contiene listas de cadenas.
     """
-    # Selecciona los 100 repositorios con mayor número de stargazers_count
-    top_100_df = df.nlargest(100, 'stargazers_count')
-    
-    # Crea una lista con todas las cadenas encontradas en las listas de la columna 'topics'
-    all_topics = [topic for topics in top_100_df['topics'] for topic in topics]
-    
-    # Cuenta la frecuencia de cada cadena
-    topic_counts = Counter(all_topics)
-    
-    # Obtiene las 20 cadenas más comunes
-    top_20_topics = topic_counts.most_common(20)
-    
-    # Separa los tópicos y sus cuentas
-    topics, counts = zip(*top_20_topics)
-    
-    # Crea el gráfico de barras
-    plt.figure(figsize=(10, 6))
-    plt.barh(topics, counts, color='skyblue')
-    plt.xlabel('Número de Ocurrencias', fontsize=14)
-    plt.ylabel('Tópicos', fontsize=14)
-    plt.title('Top 20 Tópicos Más Comunes en los 100 Repositorios con Mayor Número de Stargazers', fontsize=16)
-    plt.gca().invert_yaxis()  # Invierte el orden para que el valor más alto esté en la parte superior
+
+    def get_top_20_topics_by_sum(df, numeric_col, topics_col):
+        # Diccionario para almacenar la suma de los valores para cada tema
+        topic_sums = Counter()
+
+        # Itera sobre cada fila del DataFrame
+        for _, row in df.iterrows():
+            if isinstance(row[topics_col], list):  # Verifica si el valor es una lista
+                for topic in row[topics_col]:
+                    topic_sums[topic] += row[numeric_col]  # Suma el valor de la columna numérica
+
+        # Ordena los temas por la suma en orden descendente
+        top_20_topics = topic_sums.most_common(20)
+        if not top_20_topics:  # En caso de que no existan temas
+            return [], []
+        return zip(*top_20_topics)  # Separa los temas y los recuentos
+
+    # Obtiene los datos para ambas columnas
+    topics1, counts1 = get_top_20_topics_by_sum(df, col1, column_topic)
+    topics2, counts2 = get_top_20_topics_by_sum(df, col2, column_topic)
+
+    # Crea la figura y los ejes
+    fig, axes = plt.subplots(1, 2, figsize=(16, 8), sharey=True)
+    if topics1 and counts1:
+        axes[0].barh(topics1, counts1, color='royalblue')
+        axes[0].set_title(f'Top 20 Temas en <{col1}>', fontsize=16)
+        axes[0].set_xlabel('Suma', fontsize=14)
+        axes[0].invert_yaxis()  # Invierte el eje Y en el gráfico de la izquierda
+
+    if topics2 and counts2:
+        axes[1].barh(topics2, counts2, color='darkgreen')
+        axes[1].set_title(f'Top 20 Tópicos en <{col2}>', fontsize=16)
+        axes[1].set_xlabel('Suma', fontsize=14)
+
+    # Ajusta el diseño
+    plt.tight_layout()
     plt.show()
 
-# Ejemplo de uso
-# top_20_strings_by_stargazers(df)
+
+def boxplot_generate(df, columna):
+
+    if columna not in df.columns:
+        raise ValueError(f"La columna '{columna}' no está presente en el DataFrame.")
+    if not (df[columna].dtype.kind in 'biufc'):
+        raise ValueError(f"La columna '{columna}' no es numérica.")
+    
+    plt.figure(figsize=(18, 6))
+    sns.boxplot(x=df[columna], color='skyblue')
+    plt.title(f'Boxplot de {columna}', fontsize=14)
+    plt.xlabel(columna, fontsize=12)
+    plt.grid(axis='x', linestyle='--', alpha=0.7)
+    plt.show()
+
