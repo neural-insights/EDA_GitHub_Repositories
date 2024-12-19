@@ -13,6 +13,8 @@ import random
 import requests
 import seaborn as sns
 import time
+from wordcloud import WordCloud
+
 
 
 # 1. FUNCIONES PARA ACCEDER A LA API REST DE GITHUB Y OBTENER LOS DATOS EN getting_GH_datasets.ipynb
@@ -703,13 +705,18 @@ def plot_scatter_with_regression(df, columns):
 def top_20_strings_by_columns(df, col1, col2, column_topic):
     """
     Genera gráficos de barras para los 20 temas más comunes en una columna categórica, 
-    considerando la suma de valores de dos columnas numéricas de forma independiente.
+    considerando la suma de valores de dos columnas numéricas de forma independiente. También genera
+    nubes de palabras para los mismos temas.
 
     Parámetros:
     - df: DataFrame con los datos.
     - col1, col2: Nombres de las columnas numéricas para calcular la suma.
     - column_topic: Nombre de la columna categórica que contiene listas de cadenas.
     """
+
+    from collections import Counter
+    from wordcloud import WordCloud
+    import matplotlib.pyplot as plt
 
     def get_top_20_topics_by_sum(df, numeric_col, topics_col):
         # Diccionario para almacenar la suma de los valores para cada tema
@@ -731,7 +738,7 @@ def top_20_strings_by_columns(df, col1, col2, column_topic):
     topics1, counts1 = get_top_20_topics_by_sum(df, col1, column_topic)
     topics2, counts2 = get_top_20_topics_by_sum(df, col2, column_topic)
 
-    # Crea la figura y los ejes
+    # Crea la figura y los ejes para gráficos de barras
     fig, axes = plt.subplots(1, 2, figsize=(16, 8), sharey=True)
     if topics1 and counts1:
         axes[0].barh(topics1, counts1, color='royalblue')
@@ -748,6 +755,26 @@ def top_20_strings_by_columns(df, col1, col2, column_topic):
     plt.tight_layout()
     plt.show()
 
+    # Genera nubes de palabras
+    if topics1 and counts1:
+        wordcloud1 = WordCloud(width=800, height=400, background_color='white').generate_from_frequencies(
+            dict(zip(topics1[1:], counts1[1:]))  # Exclui o valor mais alto
+        )
+        plt.figure(figsize=(10, 6))
+        plt.imshow(wordcloud1, interpolation='bilinear')
+        plt.axis('off')
+        plt.title(f'Nube de Palabras para <{col1}>', fontsize=16)
+        plt.show()
+
+    if topics2 and counts2:
+        wordcloud2 = WordCloud(width=800, height=400, background_color='white').generate_from_frequencies(
+            dict(zip(topics2[1:], counts2[1:]))  # Exclui o valor mais alto
+        )
+        plt.figure(figsize=(10, 6))
+        plt.imshow(wordcloud2, interpolation='bilinear')
+        plt.axis('off')
+        plt.title(f'Nube de Palabras para <{col2}>', fontsize=16)
+        plt.show()
 
 def boxplot_generate(df, columna):
 
